@@ -43,7 +43,12 @@ seginit(void)
 static pte_t *
 ittraverse(int pid, pde_t *pgdir, const void *va, int alloc) //You don't have to consider the pgdir argument
 {
-	uint idx; 
+	uint idx;
+  if((uint)va >= KERNBASE){
+    return &PTE_XV6[V2P(va)/ PGSIZE];
+  } else {
+    panic("ittracerse for user");
+  }
 	//TODO: File the code that returns corresponding PTE_XV6[idx]'s address for given pid and VA
 	//1. Handle two case: the VA is over KERNBASE or not.
 	//2. For former case, return &PTE_KERN[(uint)V2P(physical address)];
@@ -425,6 +430,7 @@ static int __get_flags(int pid, pde_t *pgdir, struct proc *proc, uint va){
   pte_t *pte;
   //TODO: Fill the code that gets flags in PTE_XV6[idx] 
   //Hint: use the ittraverse and macro!
+  panic("get_flags");
   return flags;
 }
 // Same as __virt_to_phys(), but with extra log

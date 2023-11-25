@@ -67,11 +67,40 @@ freerange(void *vstart, void *vend)
 void kfree(int pid, char *v){
 
   uint kv, idx;
+
+  panic("kfree");
   //TODO: Fill the code that supports kfree
   //1. Find the corresponding physical address for given pid and VA
   //2. Initialize the PID[idx], VPN[idx], and PTE_XV6[idx]
   //3. For memset, Convert the physical address for free to kernel's virtual address by using P2V macro
-  memset(kv, 1, PGSIZE); //TODO: You must perform memset for P2V(physical address);
+  // memset(kv, 1, PGSIZE); //TODO: You must perform memset for P2V(physical address);
+}
+
+#define USTART 1024 * PGSIZE
+
+int find_k_free_space(){
+    uint pa = PGROUNDUP((uint)V2P(end));
+    int idx;
+
+    for(; pa < USTART; pa += PGSIZE){
+      idx = pa / PGSIZE;
+      if(PID[idx] == -1){
+        return idx;
+      }
+    }
+    return -1;
+}
+
+int find_u_free_space(){
+  uint pa = USTART;
+  int idx;
+  for(;pa < (uint)PHYSTOP; pa+= PGSIZE){
+    idx = pa / PGSIZE;
+    if(PID[idx] == -1){
+      return idx;
+    }
+  }
+  return -1;
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -81,12 +110,31 @@ void kfree(int pid, char *v){
 char*
 kalloc(int pid, char *v)
 {
-
   int idx;
- 
+  uint pa;
   if(kmem.use_lock)
     acquire(&kmem.lock);
 
+  if (v == (char *)-1){
+    idx = find_k_free_space();
+  } else {
+    idx = find_u_free_space();
+  }
+  
+  if(idx != -1){
+    if(kmem.use_lock)
+      release(&kmem.lock);
+    return 0;
+  }
+  pa = idx * PGSIZE;
+
+  PID[idx] = pid;
+
+  if(v == (char *)-1){
+    VPN[idx] = (uint)P2V(pa);
+  } else {
+    VPN[idx] = (uint)v;
+  }
   //TODO: Fill the code that supports kalloc
   //1. Find the freespace by hash function
   //2. Consider the case that v is -1, which means that the caller of kalloc is kernel so the virtual address is decided by the allocated physical address (P2V) 
@@ -94,7 +142,7 @@ kalloc(int pid, char *v)
   //4. Return (char*)P2V(physical address), if there is no free space, return 0
   if(kmem.use_lock)
     release(&kmem.lock);
-  return 0;
+  return (char *)P2V(pa);
 }
 
 /*

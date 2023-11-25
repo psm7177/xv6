@@ -36,6 +36,20 @@ seginit(void)
   lgdt(c->gdt, sizeof(c->gdt));
 }
 
+#define USTART 1024// // // // // // // // // // // // // // //  * PGSIZE
+
+int find_u_page(int pid, int va){
+  uint pa = USTART;
+  int idx;
+  for(;pa < (uint)PHYSTOP; pa+= PGSIZE){
+    idx = pa / PGSIZE;
+    if(PID[idx] == pid && VPN[idx] == va){
+      return idx;
+    }
+  }
+  return -1;
+}
+
 // Return the address of the PTE in page table pgdir
 // that corresponds to virtual address va.  If alloc!=0,
 // create any required page table pages.
@@ -45,10 +59,29 @@ ittraverse(int pid, pde_t *pgdir, const void *va, int alloc) //You don't have to
 {
 	uint idx;
   if((uint)va >= KERNBASE){
-    return &PTE_XV6[V2P(va)/ PGSIZE];
+    idx = V2P(va)/ PGSIZE;
   } else {
-    panic("ittracerse for user");
+    idx = find_u_page(pid, (uint)va); 
+  if(idx == -1){
+    return 0;
   }
+  }
+  if(idx == 1024){
+      cprintf("pid: %d\n",pid);
+      cprintf("va: %p\n",va);
+      cprintf("alloc: %d\n",alloc);
+      cprintf("idx: %d\n", idx);
+      cprintf("pte: %p\n",PTE_XV6[idx]);
+  }
+  if(PTE_XV6[idx] & PTE_P){
+      cprintf("pid: %d\n",pid);
+      cprintf("va: %p\n",va);
+      cprintf("alloc: %d\n",alloc);
+      cprintf("idx: %d\n", idx);
+      cprintf("pte: %p\n",PTE_XV6[idx]);
+      // panic("pte");
+    }
+  return &PTE_XV6[idx];
 	//TODO: File the code that returns corresponding PTE_XV6[idx]'s address for given pid and VA
 	//1. Handle two case: the VA is over KERNBASE or not.
 	//2. For former case, return &PTE_KERN[(uint)V2P(physical address)];
@@ -82,16 +115,16 @@ k_walkpgdir(pde_t *pgdir, const void *va, int alloc)
 static int
 mappages(int pid, int is_kernel, pde_t *pgdir, void *va, uint size, uint pa, int perm)
 {
-  char *a, *last;
+  uint a, last;
   pte_t *pte;
-
-  a = (char*)PGROUNDDOWN((uint)va);
-  last = (char*)PGROUNDDOWN(((uint)va) + size - 1);
+  cprintf("map\n");
+  a = PGROUNDDOWN((uint)va);
+  last = PGROUNDDOWN(((uint)va) + size - 1);
   for(;;){
     if (is_kernel)
-      pte = k_walkpgdir(pgdir, a, 1);
+      pte = k_walkpgdir(pgdir, (void *)a, 1);
     else
-      pte = ittraverse(pid, pgdir, a, 1);
+      pte = ittraverse(pid, pgdir, (void *)a, 1);
     if(pte == 0)
       return -1;
     if(*pte & PTE_P)
@@ -292,6 +325,8 @@ deallocuvm(int pid, pde_t *pgdir, uint oldsz, uint newsz){
   if(newsz >= oldsz)
     return oldsz;
   a = PGROUNDUP(newsz);
+
+  panic("asdf");
   //TODO: File the code that free the allocated pages by users
   //For range in (a <= va < oldsz), if there are some pages that the process allocates, call kfree(pid, v)
   return newsz; 
@@ -418,10 +453,13 @@ static uint __virt_to_phys(int pid, int shadow, pde_t *pgdir, struct proc *proc,
 	pte_t *pgtable = (pte_t*)P2V(PTE_ADDR(*pde));
 	pa = PTE_ADDR(pgtable[PTX(va)]) | OWP(va);
 	return pa;
-  } 
+  }
+
+  pde_t *pde = ittraverse(pid, pgdir, (const void *)va, 0);
+  pa = PTE_ADDR(*pde) | OWP(va);
+	return pa;
   //TODO: Fill the code that converts VA to PA for given pid
   //Hint: Use ittraverse!
-  return pa;
 }
 
 static int __get_flags(int pid, pde_t *pgdir, struct proc *proc, uint va){
@@ -430,7 +468,8 @@ static int __get_flags(int pid, pde_t *pgdir, struct proc *proc, uint va){
   pte_t *pte;
   //TODO: Fill the code that gets flags in PTE_XV6[idx] 
   //Hint: use the ittraverse and macro!
-  panic("get_flags");
+  pte = ittraverse(pid, pgdir, (const void *)va, 0);
+  flags = PTE_FLAGS(*pte);
   return flags;
 }
 // Same as __virt_to_phys(), but with extra log

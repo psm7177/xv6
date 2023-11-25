@@ -130,7 +130,9 @@ userinit(void)
     panic("userinit: out of memory?");
   p->shadow_pgdir = setupkvm(1);
   p->last_va = 0;
+  cprintf("hello\n");
   inituvm(p->pgdir, _binary_initcode_start, (int)_binary_initcode_size);
+  cprintf("hello\n");
   p->sz = PGSIZE;
   memset(p->tf, 0, sizeof(*p->tf));
   p->tf->cs = (SEG_UCODE << 3) | DPL_USER;

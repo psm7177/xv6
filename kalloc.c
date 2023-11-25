@@ -63,12 +63,25 @@ freerange(void *vstart, void *vend)
 // which normally should have been returned by a
 // call to kalloc().  (The exception is when
 // initializing the allocator; see kinit above.)
-
+int find_u_page(int pid, int va);
 void kfree(int pid, char *v){
 
   uint kv, idx;
 
   panic("kfree");
+
+  if((uint)v >= KERNBASE){
+    idx = V2P(v)/ PGSIZE;
+  } else {
+    idx = find_u_page(pid, (uint)v); 
+  }
+
+  PID[idx] = -1;
+  VPN[idx] = 0;
+  PTE_XV6[idx] = 0;
+
+  memset(P2V(idx * PGSIZE), 1, PGSIZE);
+
   //TODO: Fill the code that supports kfree
   //1. Find the corresponding physical address for given pid and VA
   //2. Initialize the PID[idx], VPN[idx], and PTE_XV6[idx]
@@ -121,13 +134,12 @@ kalloc(int pid, char *v)
     idx = find_u_free_space();
   }
   
-  if(idx != -1){
+  if(idx == -1){
     if(kmem.use_lock)
       release(&kmem.lock);
     return 0;
   }
   pa = idx * PGSIZE;
-
   PID[idx] = pid;
 
   if(v == (char *)-1){
@@ -135,6 +147,8 @@ kalloc(int pid, char *v)
   } else {
     VPN[idx] = (uint)v;
   }
+  cprintf("kalloc\n");
+  cprintf("idx: %d\n", idx);
   //TODO: Fill the code that supports kalloc
   //1. Find the freespace by hash function
   //2. Consider the case that v is -1, which means that the caller of kalloc is kernel so the virtual address is decided by the allocated physical address (P2V) 

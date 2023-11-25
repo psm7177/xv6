@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "elf.h"
 
+#define MAXENTRY 57334
 extern char data[];  // defined by kernel.ld
 extern uint PTE_XV6[];
 extern uint PTE_KERN[];
@@ -36,6 +37,24 @@ seginit(void)
   lgdt(c->gdt, sizeof(c->gdt));
 }
 
+uint hash_vpn(uint va);
+
+uint find_space(uint pid, uint vpn, uint idx, uint max)
+{
+  uint i;
+  for (i = idx; i < max; i++)
+  {
+    if (PID[i] == -1 && VPN[i] == vpn)
+    {
+      return i;
+    }
+  }
+  if (i == idx - 1) {
+    return 0;
+  }
+  return find_space(pid, vpn, 1024, idx);
+}
+
 // Return the address of the PTE in page table pgdir
 // that corresponds to virtual address va.  If alloc!=0,
 // create any required page table pages.
@@ -44,6 +63,26 @@ static pte_t *
 ittraverse(int pid, pde_t *pgdir, const void *va, int alloc) //You don't have to consider the pgdir argument
 {
 	uint idx; 
+  if((uint)va >= KERNBASE){
+    if(PTE_XV6[V2P(va) / PGSIZE] & PTE_P){
+      cprintf("pte: %p\n",PTE_XV6[V2P(va) / PGSIZE]);
+      // panic("pte");
+    }
+    return &PTE_XV6[V2P(va) / PGSIZE];
+  } else {
+    // panic("ittraverse Not Implemented");
+    idx = hash_vpn((uint)va);
+    idx = find_space(pid, (uint)va, idx, MAXENTRY);
+    if(PTE_XV6[idx] & PTE_P){
+      cprintf("pid: %d\n",pid);
+      cprintf("va: %p\n",va);
+      cprintf("alloc: %d\n",alloc);
+      cprintf("idx: %d\n", idx);
+      cprintf("pte: %p\n",PTE_XV6[idx]);
+      // panic("pte");
+    }
+    return &PTE_XV6[idx];
+  }
 	//TODO: File the code that returns corresponding PTE_XV6[idx]'s address for given pid and VA
 	//1. Handle two case: the VA is over KERNBASE or not.
 	//2. For former case, return &PTE_KERN[(uint)V2P(physical address)];
@@ -210,7 +249,7 @@ void
 inituvm(pde_t *pgdir, char *init, uint sz)
 {
   char *mem;
-
+  
   if(sz >= PGSIZE)
     panic("inituvm: more than a page");
   mem = kalloc(1, (char*)0);
@@ -287,6 +326,8 @@ deallocuvm(int pid, pde_t *pgdir, uint oldsz, uint newsz){
   if(newsz >= oldsz)
     return oldsz;
   a = PGROUNDUP(newsz);
+
+  panic("deallocNot Implemented");
   //TODO: File the code that free the allocated pages by users
   //For range in (a <= va < oldsz), if there are some pages that the process allocates, call kfree(pid, v)
   return newsz; 
@@ -399,7 +440,7 @@ copyout(int pid, pde_t *pgdir, uint va, void *p, uint len)
  * The LOG macro should be used while performing early debugging only
  * and it'll most likely cause a crash during normal operations.
  */
-#define LOG 0
+#define LOG 1
 #define clprintf(...) if (LOG) cprintf(__VA_ARGS__)
 
 // Returns physical page address from virtual address
@@ -413,7 +454,9 @@ static uint __virt_to_phys(int pid, int shadow, pde_t *pgdir, struct proc *proc,
 	pte_t *pgtable = (pte_t*)P2V(PTE_ADDR(*pde));
 	pa = PTE_ADDR(pgtable[PTX(va)]) | OWP(va);
 	return pa;
-  } 
+  }
+
+  panic("__virt_to_phys Not Implemented");
   //TODO: Fill the code that converts VA to PA for given pid
   //Hint: Use ittraverse!
   return pa;
@@ -423,6 +466,8 @@ static int __get_flags(int pid, pde_t *pgdir, struct proc *proc, uint va){
   //This function is used for obtaining flags for given va and pid
   uint flags;
   pte_t *pte;
+
+  panic("__get_flags Not Implemented");
   //TODO: Fill the code that gets flags in PTE_XV6[idx] 
   //Hint: use the ittraverse and macro!
   return flags;

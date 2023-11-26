@@ -123,7 +123,7 @@ userinit(void)
 {
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
-
+  cprintf("=====userinit=====\n");
   p = allocproc();
   initproc = p;
   if((p->pgdir = setupkvm(0)) == 0)
@@ -142,7 +142,6 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
-
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 

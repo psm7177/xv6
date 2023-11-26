@@ -18,6 +18,7 @@ extern pte_t PTE_XV6[];
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
                    // defined by the kernel linker script in kernel.ld
+extern char data[];
 
 struct run {
   struct run *next;
@@ -65,10 +66,8 @@ freerange(void *vstart, void *vend)
 // initializing the allocator; see kinit above.)
 int find_u_page(int pid, int va);
 void kfree(int pid, char *v){
-
+  panic("asdf");
   uint kv, idx;
-
-  panic("kfree");
 
   if((uint)v >= KERNBASE){
     idx = V2P(v)/ PGSIZE;

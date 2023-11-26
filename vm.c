@@ -60,28 +60,35 @@ ittraverse(int pid, pde_t *pgdir, const void *va, int alloc) //You don't have to
 	uint idx;
   if((uint)va >= KERNBASE){
     idx = V2P(va)/ PGSIZE;
+    return &PTE_KERN[idx];
   } else {
     idx = find_u_page(pid, (uint)va); 
-  if(idx == -1){
-    return 0;
-  }
-  }
-  if(idx == 1024){
-      cprintf("pid: %d\n",pid);
-      cprintf("va: %p\n",va);
-      cprintf("alloc: %d\n",alloc);
-      cprintf("idx: %d\n", idx);
-      cprintf("pte: %p\n",PTE_XV6[idx]);
-  }
-  if(PTE_XV6[idx] & PTE_P){
-      cprintf("pid: %d\n",pid);
-      cprintf("va: %p\n",va);
-      cprintf("alloc: %d\n",alloc);
-      cprintf("idx: %d\n", idx);
-      cprintf("pte: %p\n",PTE_XV6[idx]);
-      // panic("pte");
+    if(idx == -1){
+      return 0;
     }
-  return &PTE_XV6[idx];
+    return &PTE_XV6[idx];
+  }
+  // if(idx > 0){
+  //   cprintf("pte: %d\n", PTE_XV6[idx -1 ] & PTE_P);
+  // }
+  // cprintf("ittraverse\n");
+  // cprintf("va: %p\n",va);
+  // cprintf("pte: %p\n", PTE_XV6[idx]);
+  // if(idx == 1024){
+  //     cprintf("pid: %d\n",pid);
+  //     cprintf("va: %p\n",va);
+  //     cprintf("alloc: %d\n",alloc);
+  //     cprintf("idx: %d\n", idx);
+  //     cprintf("pte: %p\n",PTE_XV6[idx]);
+  // }
+  // if(PTE_XV6[idx] & PTE_P){
+  //     cprintf("pid: %d\n",pid);
+  //     cprintf("va: %p\n",va);
+  //     cprintf("alloc: %d\n",alloc);
+  //     cprintf("idx: %d\n", idx);
+  //     cprintf("pte: %p\n",PTE_XV6[idx]);
+  //     // panic("pte");
+  //   }
 	//TODO: File the code that returns corresponding PTE_XV6[idx]'s address for given pid and VA
 	//1. Handle two case: the VA is over KERNBASE or not.
 	//2. For former case, return &PTE_KERN[(uint)V2P(physical address)];
@@ -118,6 +125,7 @@ mappages(int pid, int is_kernel, pde_t *pgdir, void *va, uint size, uint pa, int
   uint a, last;
   pte_t *pte;
   cprintf("map\n");
+  cprintf("kernel: %d\n",is_kernel);
   a = PGROUNDDOWN((uint)va);
   last = PGROUNDDOWN(((uint)va) + size - 1);
   for(;;){
@@ -177,6 +185,7 @@ static struct kmap {
 pde_t*
 setupkvm(int is_kernel)
 {
+  cprintf("setupkvm: %d\n", is_kernel);
   pde_t *pgdir;
   struct kmap *k;
 
@@ -326,7 +335,19 @@ deallocuvm(int pid, pde_t *pgdir, uint oldsz, uint newsz){
     return oldsz;
   a = PGROUNDUP(newsz);
 
-  panic("asdf");
+  for(; a < oldsz;a+= PGSIZE){
+    pte = ittraverse(pid, pgdir, (void*) a, 0);
+
+    if(pte == 0){
+      continue;
+    }
+
+    if(*pte && PTE_P){
+      pa = PTE_ADDR(*pte);
+      kfree(pid, (void *)a);
+      *pte = 0;
+    }
+  }
   //TODO: File the code that free the allocated pages by users
   //For range in (a <= va < oldsz), if there are some pages that the process allocates, call kfree(pid, v)
   return newsz; 
